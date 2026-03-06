@@ -13,7 +13,7 @@ def data_clean(df):
     df = df.dropna()
     return df
 
-def data_split(df):
+def data_split():
 
     train_df, test_df  = read_data()
 
