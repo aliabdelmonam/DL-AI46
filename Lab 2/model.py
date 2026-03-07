@@ -21,7 +21,8 @@ class Model(nn.Module):
 
   def fit(self, x: torch.Tensor, y: torch.Tensor, criterion: nn.Module, optimizer: Optimizer, epochs: int = 100,\
            reset_weights: bool = False, x_val: torch.Tensor = None, y_val: torch.Tensor = None,\
-              metric_fn = None, scheduler: torch.optim.lr_scheduler._LRScheduler = None):
+              metric_fn = None, scheduler: torch.optim.lr_scheduler._LRScheduler = None, \
+              clip_value: float = None):
     if reset_weights:
       print("Resetting model weights for a fresh start.")
       for m in self.modules():
@@ -36,6 +37,8 @@ class Model(nn.Module):
         train_logits = self.forward(x)
         train_loss = criterion(train_logits, y.unsqueeze(1)) # Ensure y has same dimensions as logits
         train_loss.backward()  # Perform backward pass
+        if clip_value is not None:
+          torch.nn.utils.clip_grad_norm_(self.parameters(), clip_value) # Apply gradient clipping
         optimizer.step()  # Update weights
 
         if scheduler:
