@@ -11,12 +11,8 @@ class Model(nn.Module):
     self.layers = nn.Sequential(OrderedDict([
         ("linear1",nn.Linear(self.shape[1],64)),
         ("relu1",nn.ReLU()),
-        ("linear2",nn.Linear(64,64)),
+        ("linear2",nn.Linear(64,32)),
         ("relu2",nn.ReLU()),
-        ("linear3",nn.Linear(64,32)),
-        ("relu3",nn.ReLU()),
-        ("linear4",nn.Linear(32,16)),
-        ("relu4",nn.ReLU()),
         ("output",nn.Linear(16,1))
     ]))
 
