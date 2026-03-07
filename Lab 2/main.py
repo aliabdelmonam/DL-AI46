@@ -11,7 +11,7 @@ import torch.optim.lr_scheduler
 
 model = Model(X_train_tensor.shape)
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001) # Added L2 regularization (weight decay)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
 
 
