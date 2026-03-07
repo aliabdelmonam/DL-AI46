@@ -13,7 +13,7 @@ class Model(nn.Module):
         ("relu1",nn.ReLU()),
         ("linear2",nn.Linear(64,32)),
         ("relu2",nn.ReLU()),
-        ("output",nn.Linear(16,1))
+        ("output",nn.Linear(32,1))
     ]))
 
   def forward(self, x):
