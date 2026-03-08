@@ -3,6 +3,7 @@ import torch.nn as nn
 from typing import OrderedDict
 from torch.optim import Optimizer
 import torch.optim.lr_scheduler
+import os
 
 class Model(nn.Module):
   def __init__(self,shape) -> None:
@@ -22,7 +23,8 @@ class Model(nn.Module):
   def fit(self, x: torch.Tensor, y: torch.Tensor, criterion: nn.Module, optimizer: Optimizer, epochs: int = 100,\
            reset_weights: bool = False, x_val: torch.Tensor = None, y_val: torch.Tensor = None,\
               metric_fn = None, scheduler: torch.optim.lr_scheduler._LRScheduler = None, \
-              clip_value: float = None,patience: int = None, min_delta: float = 0.0):
+              clip_value: float = None,patience: int = None, min_delta: float = 0.0,
+              save_path: str = None, save_best_only: bool= True, save_every_n_epochs: int =0):
     if reset_weights:
       print("Resetting model weights for a fresh start.")
       for m in self.modules():
@@ -35,7 +37,7 @@ class Model(nn.Module):
     best_val_loss = float('inf')
     patience_counter = 0
     best_model_state = None
-    
+
     for epoch in range(epochs):
         self.train() # Set model to training mode
         optimizer.zero_grad()  # Zero the gradients
@@ -66,20 +68,32 @@ class Model(nn.Module):
           self.train() # Set model back to training mode
 
           # Early stopping logic
-          if patience is not None:
-            if val_loss.item() < best_val_loss - min_delta:
-              best_val_loss = val_loss.item()
-              patience_counter = 0
-              best_model_state = self.state_dict() # Save best model state
-            else:
-              patience_counter += 1
-              if patience_counter >= patience:
-                print(f"Early stopping triggered after {epoch+1} epochs due to no improvement in validation loss.")
-                if best_model_state:
-                  self.load_state_dict(best_model_state) # Load best model weights
-                  print("Loaded best model weights.")
-                break # Exit training loop
-
+          if val_loss.item() < best_val_loss - min_delta:
+            best_val_loss = val_loss.item()
+            patience_counter = 0
+            best_model_state = self.state_dict() # Save best model state
+            
+            if save_path and save_best_only:
+              os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True) # Create directory if it doesn't exist
+              torch.save(best_model_state, save_path)
+              print(f"Best model checkpoint saved to {save_path}")
+          else:
+            patience_counter += 1
+            if patience is not None and patience_counter >= patience:
+              print(f"Early stopping triggered after {epoch+1} epochs due to no improvement in validation loss.")
+              if best_model_state:
+                self.load_state_dict(best_model_state) # Load best model weights
+                print("Loaded best model weights.")
+              break # Exit training loop
+        
+        # Periodic checkpointing (independent of best_val_loss and save_best_only)
+        if save_path and not save_best_only and save_every_n_epochs > 0 and (epoch + 1) % save_every_n_epochs == 0:
+          base_name, ext = os.path.splitext(save_path)
+          # If save_path is just a filename, ext will be empty or .pth, otherwise it's part of the base_name
+          periodic_filename = f"{base_name}_epoch_{epoch+1}{ext if ext else '.pth'}"
+          os.makedirs(os.path.dirname(periodic_filename) or '.', exist_ok=True) # Create directory if it doesn't exist
+          torch.save(self.state_dict(), periodic_filename)
+          print(f"Periodic model checkpoint saved to {periodic_filename}")
 
         if (epoch + 1) % 10 == 0:
             print(log_message)
