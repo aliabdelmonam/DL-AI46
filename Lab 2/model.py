@@ -27,7 +27,7 @@ class Model(nn.Module):
            reset_weights: bool = False, x_val: torch.Tensor = None, y_val: torch.Tensor = None,
               metric_fn = None, scheduler: torch.optim.lr_scheduler._LRScheduler = None, 
               clip_value: float = None,patience: int = None, min_delta: float = 0.0,
-              save_path: str = None, save_best_only: bool= True, save_every_n_epochs: int =0):
+              save_path: str = None, save_best_only: bool= True, save_every_n_epochs: int =0, verbose: int = 0):
     if reset_weights:
       print("Resetting model weights for a fresh start.")
       for m in self.modules():
@@ -70,11 +70,11 @@ class Model(nn.Module):
                 log_message += f', Val Metric: {val_metric.item():.4f}'
           self.train() # Set model back to training mode
 
-          # Early stopping logic
+          # Update best_model_state if validation loss improves
           if val_loss.item() < best_val_loss - min_delta:
             best_val_loss = val_loss.item()
             patience_counter = 0
-            best_model_state = self.state_dict() # Save best model state
+            best_model_state = self.state_dict() # Always save the best state in memory
 
             if save_path and save_best_only:
               os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True) # Create directory if it doesn't exist
@@ -89,8 +89,8 @@ class Model(nn.Module):
                 print("Loaded best model weights.")
               break # Exit training loop
 
-        # Periodic checkpointing (independent of best_val_loss and save_best_only)
-        if save_path and not save_best_only and save_every_n_epochs > 0 and (epoch + 1) % save_every_n_epochs == 0:
+        # Periodic checkpointing (now independent of save_best_only)
+        if save_path and save_every_n_epochs > 0 and (epoch + 1) % save_every_n_epochs == 0:
           base_checkpoint_dir = os.path.dirname(save_path)
           periodic_sub_dir = os.path.join(base_checkpoint_dir, 'periodic_saves')
           os.makedirs(periodic_sub_dir, exist_ok=True) # Create periodic saves directory
@@ -98,11 +98,12 @@ class Model(nn.Module):
           base_filename_stem, ext = os.path.splitext(os.path.basename(save_path))
           periodic_filename = os.path.join(periodic_sub_dir, f"{base_filename_stem}_epoch_{epoch+1}{ext if ext else '.pth'}")
 
-          torch.save(self.state_dict(), periodic_filename)
+          torch.save(self.state_dict(), periodic_filename) # Save current model state
           print(f"Periodic model checkpoint saved to {periodic_filename}")
-
-        if (epoch + 1) % 5 == 0:
-            print(log_message)
+        
+        if verbose > 0:
+          if (epoch + 1) % verbose == 0:
+              print(log_message)
 
   def evaluate(self, x: torch.Tensor, y: torch.Tensor, criterion: nn.Module, metric_fn = None):
     self.eval() # Set model to evaluation mode
