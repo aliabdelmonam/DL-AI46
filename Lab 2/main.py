@@ -24,8 +24,15 @@ model.fit(
     epochs=100,
     x_val=X_validation_tensor,
     y_val=y_validation_tensor,
-    scheduler=scheduler
-
+    scheduler=scheduler,
+    # clip_value=1.0, # Added gradient clipping
+    patience=5, # Added early stopping patience
+    save_path='checkpoints/best_model.pth', # Path for saving best model, relative to the run directory
+    save_best_only=True, # Set to False to enable periodic checkpoints
+    save_every_n_epochs=2, # Save a checkpoint every 2 epochs
+    verbose= 1
 )
 print("Training complete.")
 
+val_loss = model.evaluate(X_validation_tensor, y_validation_tensor, criterion)
+print(f"Final Validation Loss: {val_loss:.4f}")
