@@ -22,7 +22,7 @@ class Model(nn.Module):
   def fit(self, x: torch.Tensor, y: torch.Tensor, criterion: nn.Module, optimizer: Optimizer, epochs: int = 100,\
            reset_weights: bool = False, x_val: torch.Tensor = None, y_val: torch.Tensor = None,\
               metric_fn = None, scheduler: torch.optim.lr_scheduler._LRScheduler = None, \
-              clip_value: float = None):
+              clip_value: float = None,patience: int = None, min_delta: float = 0.0):
     if reset_weights:
       print("Resetting model weights for a fresh start.")
       for m in self.modules():
@@ -31,6 +31,11 @@ class Model(nn.Module):
               if m.bias is not None:
                   nn.init.constant_(m.bias, 0) # Initialize biases to zero
 
+    # Early Stopping initialization
+    best_val_loss = float('inf')
+    patience_counter = 0
+    best_model_state = None
+    
     for epoch in range(epochs):
         self.train() # Set model to training mode
         optimizer.zero_grad()  # Zero the gradients
@@ -50,15 +55,31 @@ class Model(nn.Module):
             log_message += f', Train Metric: {train_metric.item():.4f}'
 
         if x_val is not None and y_val is not None:
-            self.eval() # Set model to evaluation mode
-            with torch.no_grad(): # Disable gradient calculations for validation
-                val_logits = self.forward(x_val)
-                val_loss = criterion(val_logits, y_val.unsqueeze(1))
-                log_message += f', Val Loss: {val_loss.item():.4f}'
-                if metric_fn:
-                    val_metric = metric_fn(val_logits, y_val.unsqueeze(1))
-                    log_message += f', Val Metric: {val_metric.item():.4f}'
-                self.train() # Set model back to training mode
+          self.eval() # Set model to evaluation mode
+          with torch.no_grad(): # Disable gradient calculations for validation
+            val_logits = self.forward(x_val)
+            val_loss = criterion(val_logits, y_val.unsqueeze(1))
+            log_message += f', Val Loss: {val_loss.item():.4f}'
+            if metric_fn:
+                val_metric = metric_fn(val_logits, y_val.unsqueeze(1))
+                log_message += f', Val Metric: {val_metric.item():.4f}'
+          self.train() # Set model back to training mode
+
+          # Early stopping logic
+          if patience is not None:
+            if val_loss.item() < best_val_loss - min_delta:
+              best_val_loss = val_loss.item()
+              patience_counter = 0
+              best_model_state = self.state_dict() # Save best model state
+            else:
+              patience_counter += 1
+              if patience_counter >= patience:
+                print(f"Early stopping triggered after {epoch+1} epochs due to no improvement in validation loss.")
+                if best_model_state:
+                  self.load_state_dict(best_model_state) # Load best model weights
+                  print("Loaded best model weights.")
+                break # Exit training loop
+
 
         if (epoch + 1) % 10 == 0:
             print(log_message)
